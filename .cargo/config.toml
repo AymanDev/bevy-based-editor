@@ -1,0 +1,8 @@
+
+[env]
+WGPU_BACKEND = "vulkan"
+
+
+[alias]
+editor = "run --package editor"
+weditor = "watch -x run --package editor"
