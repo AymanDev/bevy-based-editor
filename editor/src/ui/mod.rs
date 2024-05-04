@@ -1,11 +1,13 @@
 pub mod editor_screen_space;
-pub mod left_panel;
+pub mod hierarchy;
+pub mod inspector;
 
 use bevy::{
     app::{Plugin, Startup, Update},
     asset::Assets,
     core::Name,
-    ecs::system::{Commands, ResMut},
+    ecs::system::{Commands, ResMut, Resource},
+    hierarchy::BuildChildren,
     math::primitives::{Cuboid, Plane3d},
     pbr::{AmbientLight, PbrBundle, PointLight, PointLightBundle, StandardMaterial},
     render::{
@@ -48,6 +50,48 @@ fn init(
         .insert(PickableBundle::default());
 
     commands
+        .spawn(PbrBundle {
+            mesh: meshes.add(Cuboid::default().mesh()),
+            material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
+            transform: Transform::from_xyz(0.0, -1.0, 0.0),
+            ..Default::default()
+        })
+        .insert(Name::new("Cuboid"))
+        .insert(PickableBundle::default());
+
+    commands
+        .spawn(PbrBundle {
+            mesh: meshes.add(Cuboid::default().mesh()),
+            material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
+            transform: Transform::from_xyz(1.0, 3.0, 1.0),
+            ..Default::default()
+        })
+        .insert(Name::new("Cuboid"))
+        .insert(PickableBundle::default())
+        .with_children(|parent| {
+            parent
+                .spawn(PbrBundle {
+                    mesh: meshes.add(Cuboid::default().mesh()),
+                    material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
+                    transform: Transform::from_xyz(2.0, 4.0, 2.0),
+                    ..Default::default()
+                })
+                .insert(Name::new("Cuboid"))
+                .insert(PickableBundle::default())
+                .with_children(|parent| {
+                    parent
+                        .spawn(PbrBundle {
+                            mesh: meshes.add(Cuboid::default().mesh()),
+                            material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
+                            transform: Transform::from_xyz(2.0, -2.0, 2.0),
+                            ..Default::default()
+                        })
+                        .insert(Name::new("Cuboid"))
+                        .insert(PickableBundle::default());
+                });
+        });
+
+    commands
         .spawn(PointLightBundle {
             point_light: PointLight {
                 intensity: 20500.0,
@@ -67,6 +111,7 @@ impl Plugin for EditorUiPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.init_resource::<OccupiedScreenSpace>()
             .add_systems(Startup, init)
-            .add_systems(Update, left_panel::draw);
+            .add_systems(Update, hierarchy::draw)
+            .add_systems(Update, inspector::draw);
     }
 }

@@ -3,17 +3,16 @@ use bevy::{
     asset::{Assets, Handle},
     ecs::{
         event::EventReader,
-        system::{Query, ResMut, Resource},
+        system::{Query, Res, ResMut, Resource},
     },
     gizmos::gizmos::Gizmos,
+    input::{mouse::MouseButton, ButtonInput},
     math::Vec3,
     render::{color::Color, mesh::Mesh},
-    transform::components::Transform,
+    transform::components::{GlobalTransform, Transform},
 };
-use bevy_mod_picking::{
-    events::Pointer,
-    selection::{Deselect, Select},
-};
+use bevy_egui::EguiContexts;
+use bevy_mod_picking::events::{Click, Pointer};
 
 #[derive(Resource, Default)]
 pub struct ActiveSelection {
@@ -26,12 +25,12 @@ pub struct ActiveSelection {
 const DEFAULT_SCALE: Vec3 = Vec3::new(0.5, 0.5, 0.5);
 
 pub fn extract_scale_and_transform(
-    transform: Option<&Transform>,
+    transform: Option<&GlobalTransform>,
     mesh: Option<&Handle<Mesh>>,
     meshes: &ResMut<Assets<Mesh>>,
 ) -> (Vec3, Transform) {
     let transform = match transform {
-        Some(transform) => *transform,
+        Some(transform) => Transform::from(*transform),
         None => Transform::from_xyz(0., 0., 0.),
     };
 
@@ -45,17 +44,29 @@ pub fn extract_scale_and_transform(
     (scale, transform)
 }
 
-fn select_from_pointer_event(
-    mut pointer_select: EventReader<Pointer<Select>>,
+fn try_to_select_target(
+    mut contexts: EguiContexts,
+    mut pointer_click: EventReader<Pointer<Click>>,
+    input_mouse: Res<ButtonInput<MouseButton>>,
     mut active_selection: ResMut<ActiveSelection>,
-    query: Query<(Option<&Transform>, Option<&Handle<Mesh>>)>,
+    query: Query<(Option<&GlobalTransform>, Option<&Handle<Mesh>>)>,
     meshes: ResMut<Assets<Mesh>>,
 ) {
-    if pointer_select.is_empty() {
+    let pointer_over_egui = contexts.ctx_mut().is_pointer_over_area();
+
+    if pointer_over_egui {
         return;
     }
 
-    for event in pointer_select.read() {
+    if pointer_click.is_empty() {
+        if input_mouse.pressed(MouseButton::Left) && !pointer_over_egui {
+            active_selection.has_selection = false;
+        }
+
+        return;
+    }
+
+    for event in pointer_click.read() {
         if let Ok((transform, mesh)) = query.get(event.target) {
             active_selection.has_selection = true;
             active_selection.entity_id = event.target.index();
@@ -66,17 +77,6 @@ fn select_from_pointer_event(
             active_selection.scale = scale;
         }
     }
-}
-
-fn deselect_from_pointer_event(
-    pointer_deselect: EventReader<Pointer<Deselect>>,
-    mut active_selection: ResMut<ActiveSelection>,
-) {
-    if pointer_deselect.is_empty() {
-        return;
-    }
-
-    active_selection.has_selection = false;
 }
 
 fn draw_selection(active_selection: ResMut<ActiveSelection>, mut gizmos: Gizmos) {
@@ -107,9 +107,6 @@ impl Plugin for ActiveSelectionPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.init_resource::<ActiveSelection>()
             .add_systems(Update, draw_selection)
-            .add_systems(
-                Update,
-                (select_from_pointer_event, deselect_from_pointer_event),
-            );
+            .add_systems(Update, (try_to_select_target,));
     }
 }

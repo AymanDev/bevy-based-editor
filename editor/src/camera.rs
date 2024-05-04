@@ -58,12 +58,6 @@ fn pan_orbit_camera(
     let mut scroll = 0.0;
     let mut orbit_button_changed = false;
 
-    // println!(
-    //     "RIGHT {} MIDDLE {}",
-    //     input_mouse.pressed(orbit_button),
-    //     input_mouse.pressed(pan_button)
-    // );
-
     if input_mouse.pressed(orbit_button) {
         for ev in ev_motion.read() {
             rotation_move += ev.delta;
